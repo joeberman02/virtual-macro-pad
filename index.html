@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Macro Pad</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        macro: {
+                            base: '#0f172a',
+                            card: '#1e293b',
+                            key: '#334155',
+                            accent: '#6366f1'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom Mechanical Keycap Visual Styles */
+        .keycap {
+            transition: all 0.08s cubic-bezier(0.2, 0, 0, 1);
+            transform-style: preserve-3d;
+            box-shadow: 
+                0 6px 0 0 rgba(15, 23, 42, 0.6),
+                0 8px 12px 0 rgba(0, 0, 0, 0.4),
+                inset 0 2px 3px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -3px 4px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .keycap:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 8px 0 0 rgba(15, 23, 42, 0.6),
+                0 12px 16px 0 rgba(0, 0, 0, 0.4),
+                inset 0 2px 3px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -3px 4px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .keycap:active, .keycap.key-active {
+            transform: translateY(4px) !important;
+            box-shadow: 
+                0 2px 0 0 rgba(15, 23, 42, 0.8),
+                0 3px 6px 0 rgba(0, 0, 0, 0.3),
+                inset 0 1px 2px 0 rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* Ambient Glow & RGB Lighting Effects */
+        .rgb-mode-rainbow .keycap-glow {
+            animation: rainbowGlow 6s linear infinite;
+        }
+
+        .rgb-mode-pulse .keycap-glow {
+            animation: pulseGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes rainbowGlow {
+            0% { filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)); }
+            20% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)); }
+            40% { filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
+            60% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)); }
+            80% { filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6)); }
+            100% { filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)); }
+        }
+
+        @keyframes pulseGlow {
+            0% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Navigation Bar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <!-- Brand -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold text-xl">
+                    <i class="fa-solid font-mono text-lg">⌘</i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        Virtual Macro Pad
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Pro Deck</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">On-screen shortcut engine & productivity controller</p>
+                </div>
+            </div>
+
+            <!-- Global Quick Controls -->
+            <div class="flex items-center flex-wrap gap-2 sm:gap-3">
+                <!-- Preset Switcher -->
+                <div class="flex items-center bg-slate-800/80 border border-slate-700/60 rounded-lg p-1 text-xs">
+                    <span class="text-slate-400 px-2 font-medium"><i class="fa-solid font-xs text-slate-400 fa-folder-open mr-1"></i> Preset:</span>
+                    <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-900 text-slate-200 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-indigo-500 font-medium cursor-pointer">
+                        <option value="productivity">🚀 Daily Productivity</option>
+                        <option value="developer">💻 Developer & Coding</option>
+                        <option value="media">🎵 Media & Streaming</option>
+                        <option value="custom">⚡ My Custom Deck</option>
+                    </select>
+                </div>
+
+                <!-- Grid Size Selector -->
+                <div class="hidden sm:flex items-center bg-slate-800/80 border border-slate-700/60 rounded-lg p-1 text-xs">
+                    <span class="text-slate-400 px-2 font-medium"><i class="fa-solid fa-table-cells mr-1"></i> Grid:</span>
+                    <button onclick="setGridSize(2,2)" class="grid-btn px-2 py-1 rounded text-slate-300 hover:bg-slate-700 font-mono" id="grid-2x2">2x2</button>
+                    <button onclick="setGridSize(3,3)" class="grid-btn px-2 py-1 rounded bg-indigo-600 text-white font-mono" id="grid-3x3">3x3</button>
+                    <button onclick="setGridSize(4,3)" class="grid-btn px-2 py-1 rounded text-slate-300 hover:bg-slate-700 font-mono" id="grid-4x3">4x3</button>
+                    <button onclick="setGridSize(4,4)" class="grid-btn px-2 py-1 rounded text-slate-300 hover:bg-slate-700 font-mono" id="grid-4x4">4x4</button>
+                </div>
+
+                <!-- Sound Switch FX Toggle -->
+                <button id="soundToggle" onclick="toggleSound()" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-volume-high text-indigo-400" id="soundIcon"></i>
+                    <span id="soundLabel" class="hidden md:inline">Switch Audio: On</span>
+                </button>
+
+                <!-- Sound Switch Sound Type -->
+                <select id="soundTypeSelect" onchange="changeSoundType(this.value)" class="bg-slate-800 text-slate-300 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                    <option value="thock">⌨️ Thocky Switch</option>
+                    <option value="clicky">⚡ Clicky Switch</option>
+                    <option value="linear">☁️ Soft Linear</option>
+                    <option value="beep">🤖 Retro Synth</option>
+                </select>
+
+                <!-- Settings & Export -->
+                <button onclick="openConfigModal()" class="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Customize Deck</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 flex-grow flex flex-col lg:flex-row gap-8 items-start justify-center">
+
+        <!-- Left Column: Virtual Macro Pad Hardware Frame -->
+        <div class="w-full lg:w-auto flex-1 flex flex-col items-center justify-center">
+            
+            <!-- Keypad Chassis / Frame -->
+            <div class="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-6 sm:p-8 rounded-3xl border-2 border-slate-800 shadow-2xl shadow-indigo-950/40 max-w-full w-full sm:w-auto transition-all duration-300">
+                
+                <!-- Chassis Top Bar / OLED Display Emulation -->
+                <div class="mb-6 bg-slate-950/90 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-inner">
+                    <div class="flex items-center space-x-2.5">
+                        <div id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span id="displayProfileName" class="font-mono text-xs text-indigo-400 font-semibold uppercase tracking-wider">PRESET: DAILY PRODUCTIVITY</span>
+                    </div>
+                    <div class="flex items-center space-x-3 font-mono text-xs text-slate-500">
+                        <span id="activeActionDisplay" class="truncate max-w-[150px] sm:max-w-[200px] text-slate-300">Ready</span>
+                        <span id="liveClock" class="hidden sm:inline text-slate-400">12:00</span>
+                    </div>
+                </div>
+
+                <!-- Interactive Key Matrix Container -->
+                <div id="keycapMatrix" class="grid gap-3 sm:gap-4 justify-center place-items-center">
+                    <!-- Keycaps will be dynamically injected here by JS -->
+                </div>
+
+                <!-- Chassis Bottom Bar / RGB LED Bar -->
+                <div class="mt-6 flex items-center justify-between border-t border-slate-800/80 pt-4 text-xs text-slate-500 font-mono">
+                    <div class="flex items-center gap-2">
+                        <span>RGB:</span>
+                        <select id="rgbModeSelect" onchange="changeRGBMode(this.value)" class="bg-slate-900 text-slate-400 text-xs border border-slate-800 rounded px-2 py-0.5 focus:outline-none">
+                            <option value="static">Static Accent</option>
+                            <option value="pulse">Pulse Glow</option>
+                            <option value="rainbow">Rainbow Wave</option>
+                            <option value="off">LED Off</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-1 text-slate-400">
+                        <i class="fa-solid fa-keyboard text-xs text-indigo-400"></i>
+                        <span>Numpad / Keys active</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions & Quick Tips below the pad -->
+            <div class="mt-6 text-center text-xs text-slate-400 max-w-lg">
+                <p><span class="text-indigo-400 font-medium">💡 Pro Tip:</span> You can click any keycap directly on screen or press mapped physical keys on your keyboard! Click <span class="text-slate-200 underline cursor-pointer" onclick="openConfigModal()">Customize Deck</span> to assign your own shortcuts, web links, or text snippets.</p>
+            </div>
+        </div>
+
+        <!-- Right Column: Inspector & Trigger History Drawer -->
+        <aside class="w-full lg:w-80 flex flex-col gap-5">
+            
+            <!-- Quick Active Key Inspector -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <h2 class="text-sm font-bold text-slate-200 flex items-center justify-between mb-3">
+                    <span><i class="fa-solid fa-microchip text-indigo-400 mr-2"></i> Key Inspector</span>
+                    <span id="selectedKeyIdBadge" class="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Select a key</span>
+                </h2>
+                
+                <div id="inspectorContent" class="space-y-3 text-xs text-slate-400">
+                    <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80 text-center py-6">
+                        <i class="fa-solid fa-hand-pointer text-2xl text-slate-600 mb-2"></i>
+                        <p>Click on any keycap on the pad or hit a mapped physical key to inspect its properties.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trigger Action History Log -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Action Activity
+                    </h2>
+                    <button onclick="clearHistory()" class="text-[11px] text-slate-500 hover:text-slate-300 font-mono transition-colors">Clear</button>
+                </div>
+                
+                <div id="historyLog" class="space-y-2 overflow-y-auto max-h-60 pr-1 text-xs flex-1">
+                    <div class="text-slate-500 text-center py-8 italic font-mono text-[11px]">No recent macro triggers.</div>
+                </div>
+            </div>
+
+            <!-- Built-in Quick Action Tester -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs">
+                <label class="block font-semibold text-slate-300 mb-1.5"><i class="fa-solid fa-vial text-indigo-400 mr-1.5"></i> Clipboard / Input Test Box:</label>
+                <input type="text" placeholder="Click 'Copy' or snippets on pad, then paste (Ctrl+V) here to test..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- Toast Notification Popup Overlay -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Edit Key / Deck Customization Modal -->
+    <div id="configModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> Macro Pad Customizer
+                </h2>
+                <button onclick="closeConfigModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Edit Form -->
+            <div class="space-y-5">
+                
+                <!-- Target Key Selector -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Select Key to Customize:</label>
+                    <div id="keySelectorGrid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <!-- Key selector buttons generated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Key Properties Form -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                    
+                    <!-- Label -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Key Label / Title</label>
+                        <input type="text" id="editKeyLabel" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium">
+                    </div>
+
+                    <!-- Icon -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Icon (FontAwesome / Emoji)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="editKeyIcon" placeholder="fa-solid fa-copy" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono">
+                            <div id="iconPreview" class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 text-lg flex-shrink-0">
+                                <i class="fa-solid fa-icons"></i>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-1">E.g., <code class="text-indigo-400">fa-copy</code>, <code class="text-indigo-400">fa-scissors</code>, or emoji <code class="text-indigo-400">📋</code></p>
+                    </div>
+
+                    <!-- Action Type -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Action Type</label>
+                        <select id="editActionType" onchange="updateActionInputVisibility()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="copy_text">📋 Copy Custom Text / Snippet</option>
+                            <option value="shortcut_sim">⌨️ Shortcut Simulation (Ctrl+C, etc)</option>
+                            <option value="open_url">🌐 Open Website URL</option>
+                            <option value="synth_sound">🔊 Play Custom Audio Note</option>
+                        </select>
+                    </div>
+
+                    <!-- Action Value -->
+                    <div>
+                        <label id="editValueLabel" class="block text-xs font-medium text-slate-400 mb-1">Payload / Text Content</label>
+                        <input type="text" id="editActionValue" placeholder="Hello World!" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    </div>
+
+                    <!-- Key Accent Color -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Key Accent Color</label>
+                        <select id="editKeyColor" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="indigo">Indigo / Violet</option>
+                            <option value="emerald">Emerald Green</option>
+                            <option value="rose">Rose Red</option>
+                            <option value="amber">Amber Gold</option>
+                            <option value="cyan">Cyan / Electric Blue</option>
+                            <option value="slate">Dark Slate</option>
+                        </select>
+                    </div>
+
+                    <!-- Physical Key Binding -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Physical Keyboard Key Bind</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="editKeyBind" readonly placeholder="Click button & press key..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-amber-300 font-mono focus:outline-none">
+                            <button onclick="startListeningHotkey()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-slate-300 font-medium whitespace-nowrap">
+                                <i class="fa-solid fa-keyboard mr-1"></i> Bind Key
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Save & Action Controls -->
+                <div class="flex items-center justify-between pt-2">
+                    <button onclick="resetKeyToDefault()" class="px-3 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 text-xs font-medium transition-colors">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Reset This Key
+                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="exportDeckJSON()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                            <i class="fa-solid fa-download mr-1"></i> Export Layout
+                        </button>
+                        <button onclick="saveCurrentKeyConfig()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-600/30 transition-all">
+                            Save Key Changes
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Global Application State
+        let currentGrid = { rows: 3, cols: 3 };
+        let activePresetKey = 'productivity';
+        let soundEnabled = true;
+        let soundType = 'thock'; // thock, clicky, linear, beep
+        let rgbMode = 'static'; // static, pulse, rainbow, off
+        let selectedEditingKeyIndex = 0;
+        let activeHotkeyListening = false;
+        let triggerHistory = [];
+
+        // Web Audio API Context
+        let audioCtx = null;
+
+        // Default Layout Presets
+        const PRESETS = {
+            productivity: {
+                name: "🚀 Daily Productivity",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Copy", icon: "fa-solid fa-copy", color: "indigo", type: "shortcut_sim", value: "Ctrl + C", keybind: "1" },
+                    { label: "Paste", icon: "fa-solid fa-paste", color: "indigo", type: "shortcut_sim", value: "Ctrl + V", keybind: "2" },
+                    { label: "Cut", icon: "fa-solid fa-scissors", color: "indigo", type: "shortcut_sim", value: "Ctrl + X", keybind: "3" },
+                    { label: "Undo", icon: "fa-solid fa-rotate-left", color: "cyan", type: "shortcut_sim", value: "Ctrl + Z", keybind: "4" },
+                    { label: "Redo", icon: "fa-solid fa-rotate-right", color: "cyan", type: "shortcut_sim", value: "Ctrl + Y", keybind: "5" },
+                    { label: "Select All", icon: "fa-solid fa-object-group", color: "cyan", type: "shortcut_sim", value: "Ctrl + A", keybind: "6" },
+                    { label: "Screenshot", icon: "fa-solid fa-camera", color: "amber", type: "shortcut_sim", value: "Win + Shift + S", keybind: "7" },
+                    { label: "Lock PC", icon: "fa-solid fa-lock", color: "rose", type: "shortcut_sim", value: "Win + L", keybind: "8" },
+                    { label: "Email Signature", icon: "fa-solid fa-signature", color: "emerald", type: "copy_text", value: "Best regards,\nYour Name\nDeveloper & Designer", keybind: "9" }
+                ]
+            },
+            developer: {
+                name: "💻 Developer & Coding",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Console Log", icon: "fa-solid fa-terminal", color: "emerald", type: "copy_text", value: "console.log('DEBUG:', );", keybind: "1" },
+                    { label: "Git Status", icon: "fa-brands fa-git-alt", color: "amber", type: "copy_text", value: "git status", keybind: "2" },
+                    { label: "Git Commit", icon: "fa-solid fa-code-commit", color: "amber", type: "copy_text", value: 'git commit -m "update"', keybind: "3" },
+                    { label: "Format Code", icon: "fa-solid fa-wand-magic-sparkles", color: "indigo", type: "shortcut_sim", value: "Shift + Alt + F", keybind: "4" },
+                    { label: "Toggle Term", icon: "fa-solid fa-square-terminal", color: "indigo", type: "shortcut_sim", value: "Ctrl + `", keybind: "5" },
+                    { label: "Comment Line", icon: "fa-solid fa-hashtag", color: "indigo", type: "shortcut_sim", value: "Ctrl + /", keybind: "6" },
+                    { label: "Lorem Ipsum", icon: "fa-solid fa-paragraph", color: "cyan", type: "copy_text", value: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", keybind: "7" },
+                    { label: "JSON Template", icon: "fa-solid fa-code", color: "cyan", type: "copy_text", value: '{\n  "status": "success",\n  "data": {}\n}', keybind: "8" },
+                    { label: "Open GitHub", icon: "fa-brands fa-github", color: "slate", type: "open_url", value: "https://github.com", keybind: "9" }
+                ]
+            },
+            media: {
+                name: "🎵 Media & Streaming",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Play / Pause", icon: "fa-solid fa-play", color: "emerald", type: "shortcut_sim", value: "MediaPlayPause", keybind: "1" },
+                    { label: "Mute Audio", icon: "fa-solid fa-volume-xmark", color: "rose", type: "shortcut_sim", value: "MediaMute", keybind: "2" },
+                    { label: "Next Track", icon: "fa-solid fa-forward-step", color: "cyan", type: "shortcut_sim", value: "MediaNextTrack", keybind: "3" },
+                    { label: "Vol Up", icon: "fa-solid fa-volume-high", color: "indigo", type: "shortcut_sim", value: "VolumeUp", keybind: "4" },
+                    { label: "Vol Down", icon: "fa-solid fa-volume-low", color: "indigo", type: "shortcut_sim", value: "VolumeDown", keybind: "5" },
+                    { label: "Prev Track", icon: "fa-solid fa-backward-step", color: "cyan", type: "shortcut_sim", value: "MediaPrevTrack", keybind: "6" },
+                    { label: "Applause FX", icon: "fa-solid fa-hands-clapping", color: "amber", type: "synth_sound", value: "440", keybind: "7" },
+                    { label: "Chime FX", icon: "fa-solid fa-bell", color: "amber", type: "synth_sound", value: "880", keybind: "8" },
+                    { label: "Spotify Web", icon: "fa-brands fa-spotify", color: "emerald", type: "open_url", value: "https://open.spotify.com", keybind: "9" }
+                ]
+            },
+            custom: {
+                name: "⚡ My Custom Deck",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Custom 1", icon: "fa-solid fa-bolt", color: "indigo", type: "copy_text", value: "Custom Macro 1", keybind: "1" },
+                    { label: "Custom 2", icon: "fa-solid fa-star", color: "indigo", type: "copy_text", value: "Custom Macro 2", keybind: "2" },
+                    { label: "Custom 3", icon: "fa-solid fa-fire", color: "indigo", type: "copy_text", value: "Custom Macro 3", keybind: "3" },
+                    { label: "Custom 4", icon: "fa-solid fa-gear", color: "cyan", type: "copy_text", value: "Custom Macro 4", keybind: "4" },
+                    { label: "Custom 5", icon: "fa-solid fa-heart", color: "cyan", type: "copy_text", value: "Custom Macro 5", keybind: "5" },
+                    { label: "Custom 6", icon: "fa-solid fa-gem", color: "cyan", type: "copy_text", value: "Custom Macro 6", keybind: "6" },
+                    { label: "Custom 7", icon: "fa-solid fa-globe", color: "emerald", type: "copy_text", value: "Custom Macro 7", keybind: "7" },
+                    { label: "Custom 8", icon: "fa-solid fa-shield", color: "amber", type: "copy_text", value: "Custom Macro 8", keybind: "8" },
+                    { label: "Custom 9", icon: "fa-solid fa-rocket", color: "rose", type: "copy_text", value: "Custom Macro 9", keybind: "9" }
+                ]
+            }
+        };
+
+        // Active Key Working Memory
+        let activeKeys = JSON.parse(JSON.stringify(PRESETS.productivity.keys));
+
+        // Web Audio Synthesizer for Key Clicks & Thocks
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playKeySound(typeOverride = null) {
+            if (!soundEnabled) return;
+            initAudioContext();
+            if (!audioCtx) return;
+
+            const st = typeOverride || soundType;
+            const now = audioCtx.currentTime;
+
+            if (st === 'thock') {
+                // Low thock sound (sine drop + noise burst)
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.06);
+                
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.06);
+
+            } else if (st === 'clicky') {
+                // High tactile click sound
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1800, now);
+                osc.frequency.exponentialRampToValueAtTime(400, now + 0.02);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.02);
+
+            } else if (st === 'linear') {
+                // Soft muted damp sound
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.04);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.04);
+
+            } else if (st === 'beep') {
+                // Retro synth tone
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(587.33, now); // D5
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+        }
+
+        // Core Layout Renderer
+        function renderKeycapGrid() {
+            const container = document.getElementById('keycapMatrix');
+            container.innerHTML = '';
+
+            // Apply grid column styling dynamically
+            container.style.gridTemplateColumns = `repeat(${currentGrid.cols}, minmax(0, 1fr))`;
+
+            const totalKeys = currentGrid.rows * currentGrid.cols;
+
+            for (let i = 0; i < totalKeys; i++) {
+                // Get key config or fallback empty
+                const key = activeKeys[i] || {
+                    label: `Key ${i+1}`,
+                    icon: "fa-solid fa-plus",
+                    color: "slate",
+                    type: "copy_text",
+                    value: `Macro ${i+1}`,
+                    keybind: `${i+1}`
+                };
+
+                // Color Theme Mapping
+                const colorMap = {
+                    indigo: "bg-indigo-600/90 text-indigo-100 border-indigo-400/40 hover:bg-indigo-500",
+                    emerald: "bg-emerald-600/90 text-emerald-100 border-emerald-400/40 hover:bg-emerald-500",
+                    rose: "bg-rose-600/90 text-rose-100 border-rose-400/40 hover:bg-rose-500",
+                    amber: "bg-amber-600/90 text-amber-100 border-amber-400/40 hover:bg-amber-500",
+                    cyan: "bg-cyan-600/90 text-cyan-100 border-cyan-400/40 hover:bg-cyan-500",
+                    slate: "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700"
+                };
+
+                const glowMap = {
+                    indigo: "drop-shadow-[0_0_12px_rgba(99,102,241,0.5)]",
+                    emerald: "drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]",
+                    rose: "drop-shadow-[0_0_12px_rgba(244,63,94,0.5)]",
+                    amber: "drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]",
+                    cyan: "drop-shadow-[0_0_12px_rgba(6,182,212,0.5)]",
+                    slate: "drop-shadow-[0_0_8px_rgba(148,163,184,0.2)]"
+                };
+
+                const keyBtn = document.createElement('button');
+                keyBtn.id = `keycap-${i}`;
+                keyBtn.className = `keycap keycap-glow relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border ${colorMap[key.color] || colorMap.indigo} ${rgbMode !== 'off' ? glowMap[key.color] : ''} flex flex-col items-center justify-between p-2.5 sm:p-3 select-none cursor-pointer focus:outline-none group`;
+                
+                keyBtn.onclick = () => triggerKeyAction(i);
+
+                keyBtn.innerHTML = `
+                    <div class="w-full flex items-center justify-between text-[10px] opacity-75 font-mono">
+                        <span>#${i+1}</span>
+                        <span class="bg-black/40 px-1.5 py-0.5 rounded text-[9px] font-bold text-amber-300 border border-white/10">${key.keybind ? key.keybind.toUpperCase() : ''}</span>
+                    </div>
+                    <div class="my-auto text-xl sm:text-2xl transform group-hover:scale-110 transition-transform">
+                        <i class="${key.icon}"></i>
+                    </div>
+                    <div class="w-full text-center truncate text-[11px] sm:text-xs font-semibold tracking-tight">
+                        ${key.label}
+                    </div>
+                `;
+
+                container.appendChild(keyBtn);
+            }
+
+            // Sync grid buttons UI
+            document.querySelectorAll('.grid-btn').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
+            const activeGridBtn = document.getElementById(`grid-${currentGrid.rows}x${currentGrid.cols}`);
+            if (activeGridBtn) {
+                activeGridBtn.classList.add('bg-indigo-600', 'text-white');
+            }
+        }
+
+        // Action Trigger Processing (Click or Hotkey)
+        function triggerKeyAction(index) {
+            const key = activeKeys[index];
+            if (!key) return;
+
+            playKeySound();
+
+            // Visual Animation Feedback on Keycap
+            const el = document.getElementById(`keycap-${index}`);
+            if (el) {
+                el.classList.add('key-active');
+                setTimeout(() => el.classList.remove('key-active'), 150);
+            }
+
+            // Execute Action
+            let statusMessage = '';
+            
+            if (key.type === 'copy_text') {
+                copyToClipboard(key.value);
+                statusMessage = `Copied snippet to clipboard!`;
+                showToast(`📋 Copied: "${key.value.substring(0, 20)}${key.value.length > 20 ? '...' : ''}"`, 'success');
+
+            } else if (key.type === 'shortcut_sim') {
+                copyToClipboard(key.value);
+                statusMessage = `Triggered ${key.value}`;
+                showToast(`⌨️ Executed: ${key.value}`, 'indigo');
+
+            } else if (key.type === 'open_url') {
+                try {
+                    window.open(key.value, '_blank');
+                    statusMessage = `Opened ${key.value}`;
+                    showToast(`🌐 Opening link: ${key.value}`, 'emerald');
+                } catch(e) {
+                    showToast(`Failed to open URL`, 'error');
+                }
+
+            } else if (key.type === 'synth_sound') {
+                initAudioContext();
+                if (audioCtx) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.frequency.setValueAtTime(parseFloat(key.value) || 440, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+                statusMessage = `Played Tone (${key.value}Hz)`;
+                showToast(`🔊 Sound Tone Triggered`, 'amber');
+            }
+
+            // Update Status OLED bar
+            const displayAction = document.getElementById('activeActionDisplay');
+            if (displayAction) {
+                displayAction.textContent = `${key.label}: ${key.value}`;
+            }
+
+            // Update Inspector Display
+            updateInspector(index, key);
+
+            // Append to Action History
+            logHistory(key);
+        }
+
+        // Clipboard Copy Helper
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Inspector UI Updater
+        function updateInspector(index, key) {
+            document.getElementById('selectedKeyIdBadge').textContent = `Key #${index + 1}`;
+            
+            const container = document.getElementById('inspectorContent');
+            container.innerHTML = `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-lg">
+                            <i class="${key.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-200 text-sm">${key.label}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">Bound Key: [ ${key.keybind ? key.keybind.toUpperCase() : 'None'} ]</div>
+                        </div>
+                    </div>
+                    <hr class="border-slate-800">
+                    <div class="text-[11px] space-y-1">
+                        <div class="flex justify-between text-slate-400">
+                            <span>Type:</span>
+                            <span class="text-indigo-400 font-mono font-semibold">${key.type}</span>
+                        </div>
+                        <div class="text-slate-400">Payload:</div>
+                        <div class="bg-slate-900 p-2 rounded border border-slate-800 font-mono text-slate-200 break-all text-[10px]">
+                            ${key.value}
+                        </div>
+                    </div>
+                    <button onclick="openConfigModalForIndex(${index})" class="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-xs font-medium transition-colors">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> Edit This Key
+                    </button>
+                </div>
+            `;
+        }
+
+        // Action History Log Manager
+        function logHistory(key) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            triggerHistory.unshift({ key, time });
+            if (triggerHistory.length > 20) triggerHistory.pop();
+
+            const container = document.getElementById('historyLog');
+            if (!container) return;
+
+            container.innerHTML = triggerHistory.map(item => `
+                <div class="p-2 bg-slate-950/80 border border-slate-800/80 rounded-lg flex items-center justify-between text-[11px] hover:border-slate-700 transition-colors">
+                    <div class="flex items-center space-x-2 truncate">
+                        <i class="${item.key.icon} text-indigo-400 w-4 text-center"></i>
+                        <span class="font-semibold text-slate-200">${item.key.label}</span>
+                        <span class="text-slate-500 font-mono text-[10px]">(${item.key.value.substring(0, 15)})</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-mono ml-2 flex-shrink-0">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            triggerHistory = [];
+            document.getElementById('historyLog').innerHTML = `<div class="text-slate-500 text-center py-8 italic font-mono text-[11px]">No recent macro triggers.</div>`;
+        }
+
+        // Keyboard Event Listener for Physical Keypresses
+        window.addEventListener('keydown', (e) => {
+            // Ignore if typing inside input or textarea
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                if (activeHotkeyListening) {
+                    e.preventDefault();
+                    document.getElementById('editKeyBind').value = e.key;
+                    activeHotkeyListening = false;
+                }
+                return;
+            }
+
+            const pressedKey = e.key.toLowerCase();
+            
+            // Find key in activeKeys matching keybind
+            const targetIndex = activeKeys.findIndex(k => k && k.keybind && k.keybind.toLowerCase() === pressedKey);
+            if (targetIndex !== -1) {
+                e.preventDefault();
+                triggerKeyAction(targetIndex);
+            }
+        });
+
+        // Controls & Options Handlers
+        function loadPreset(presetKey) {
+            if (PRESETS[presetKey]) {
+                activePresetKey = presetKey;
+                activeKeys = JSON.parse(JSON.stringify(PRESETS[presetKey].keys));
+                currentGrid.rows = PRESETS[presetKey].rows;
+                currentGrid.cols = PRESETS[presetKey].cols;
+                
+                document.getElementById('displayProfileName').textContent = `PRESET: ${PRESETS[presetKey].name.toUpperCase()}`;
+                renderKeycapGrid();
+                showToast(`Loaded Preset: ${PRESETS[presetKey].name}`, 'indigo');
+            }
+        }
+
+        function setGridSize(rows, cols) {
+            currentGrid.rows = rows;
+            currentGrid.cols = cols;
+            renderKeycapGrid();
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const label = document.getElementById('soundLabel');
+            const icon = document.getElementById('soundIcon');
+            if (soundEnabled) {
+                label.textContent = "Switch Audio: On";
+                icon.className = "fa-solid fa-volume-high text-indigo-400";
+                showToast("Audio Click FX Enabled", "emerald");
+            } else {
+                label.textContent = "Switch Audio: Off";
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+                showToast("Audio Muted", "error");
+            }
+        }
+
+        function changeSoundType(type) {
+            soundType = type;
+            playKeySound();
+        }
+
+        function changeRGBMode(mode) {
+            rgbMode = mode;
+            const chassis = document.querySelector('.keycap-glow');
+            document.body.classList.remove('rgb-mode-rainbow', 'rgb-mode-pulse');
+            if (mode === 'rainbow') {
+                document.body.classList.add('rgb-mode-rainbow');
+            } else if (mode === 'pulse') {
+                document.body.classList.add('rgb-mode-pulse');
+            }
+            renderKeycapGrid();
+        }
+
+        // Modal Customizer logic
+        function openConfigModal() {
+            renderKeySelectorGrid();
+            openConfigModalForIndex(selectedEditingKeyIndex);
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function openConfigModalForIndex(index) {
+            selectedEditingKeyIndex = index;
+            renderKeySelectorGrid();
+
+            const key = activeKeys[index] || {
+                label: `Key ${index+1}`,
+                icon: "fa-solid fa-cube",
+                color: "indigo",
+                type: "copy_text",
+                value: "",
+                keybind: ""
+            };
+
+            document.getElementById('editKeyLabel').value = key.label;
+            document.getElementById('editKeyIcon').value = key.icon;
+            document.getElementById('editActionType').value = key.type;
+            document.getElementById('editActionValue').value = key.value;
+            document.getElementById('editKeyColor').value = key.color;
+            document.getElementById('editKeyBind').value = key.keybind || '';
+
+            updateActionInputVisibility();
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function renderKeySelectorGrid() {
+            const container = document.getElementById('keySelectorGrid');
+            container.innerHTML = '';
+            const totalKeys = currentGrid.rows * currentGrid.cols;
+
+            for (let i = 0; i < totalKeys; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-2 rounded-lg text-xs font-mono border ${i === selectedEditingKeyIndex ? 'bg-indigo-600 border-indigo-400 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`;
+                btn.textContent = `#${i+1}`;
+                btn.onclick = () => openConfigModalForIndex(i);
+                container.appendChild(btn);
+            }
+        }
+
+        function updateActionInputVisibility() {
+            const type = document.getElementById('editActionType').value;
+            const label = document.getElementById('editValueLabel');
+            const valInput = document.getElementById('editActionValue');
+
+            if (type === 'copy_text') {
+                label.textContent = "Text Snippet to Copy";
+                valInput.placeholder = "Enter text to copy on click...";
+            } else if (type === 'shortcut_sim') {
+                label.textContent = "Hotkey Combo Display";
+                valInput.placeholder = "e.g. Ctrl + Shift + V";
+            } else if (type === 'open_url') {
+                label.textContent = "Target Web URL";
+                valInput.placeholder = "https://example.com";
+            } else if (type === 'synth_sound') {
+                label.textContent = "Sound Frequency (Hz)";
+                valInput.placeholder = "440";
+            }
+        }
+
+        function startListeningHotkey() {
+            activeHotkeyListening = true;
+            const input = document.getElementById('editKeyBind');
+            input.value = "Press any key on keyboard...";
+            input.focus();
+        }
+
+        function saveCurrentKeyConfig() {
+            activeKeys[selectedEditingKeyIndex] = {
+                label: document.getElementById('editKeyLabel').value || `Key ${selectedEditingKeyIndex+1}`,
+                icon: document.getElementById('editKeyIcon').value || 'fa-solid fa-cube',
+                type: document.getElementById('editActionType').value,
+                value: document.getElementById('editActionValue').value,
+                color: document.getElementById('editKeyColor').value,
+                keybind: document.getElementById('editKeyBind').value
+            };
+
+            renderKeycapGrid();
+            closeConfigModal();
+            showToast(`Key #${selectedEditingKeyIndex+1} Saved!`, 'emerald');
+        }
+
+        function resetKeyToDefault() {
+            if (PRESETS[activePresetKey] && PRESETS[activePresetKey].keys[selectedEditingKeyIndex]) {
+                activeKeys[selectedEditingKeyIndex] = JSON.parse(JSON.stringify(PRESETS[activePresetKey].keys[selectedEditingKeyIndex]));
+            } else {
+                activeKeys[selectedEditingKeyIndex] = {
+                    label: `Key ${selectedEditingKeyIndex+1}`,
+                    icon: "fa-solid fa-cube",
+                    color: "indigo",
+                    type: "copy_text",
+                    value: `Macro ${selectedEditingKeyIndex+1}`,
+                    keybind: `${selectedEditingKeyIndex+1}`
+                };
+            }
+            openConfigModalForIndex(selectedEditingKeyIndex);
+            renderKeycapGrid();
+            showToast(`Reset Key #${selectedEditingKeyIndex+1} to preset default`, 'amber');
+        }
+
+        function exportDeckJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                grid: currentGrid,
+                presetName: activePresetKey,
+                keys: activeKeys
+            }, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `macropad_profile_${activePresetKey}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Downloaded Deck JSON Profile", "indigo");
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'indigo') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            
+            const bgMap = {
+                indigo: "bg-indigo-900/90 border-indigo-700 text-indigo-100",
+                emerald: "bg-emerald-900/90 border-emerald-700 text-emerald-100",
+                amber: "bg-amber-900/90 border-amber-700 text-amber-100",
+                error: "bg-rose-900/90 border-rose-700 text-rose-100",
+                success: "bg-emerald-900/90 border-emerald-700 text-emerald-100"
+            };
+
+            toast.className = `px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-xl backdrop-blur-md flex items-center gap-2 transform transition-all duration-300 translate-y-4 opacity-0 pointer-events-auto ${bgMap[type] || bgMap.indigo}`;
+            toast.innerHTML = `<span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate In
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            });
+
+            // Remove after delay
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 2600);
+        }
+
+        // Live Clock Indicator
+        function updateClock() {
+            const el = document.getElementById('liveClock');
+            if (el) {
+                const now = new Date();
+                el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        // On Page Load Initialization
+        window.onload = function() {
+            renderKeycapGrid();
+            setInterval(updateClock, 1000);
+            updateClock();
+        };
+    </script>
+</body>
+</html>
