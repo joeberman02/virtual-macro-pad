@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Macro Pad</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform || '');
+        const modKey = isMac ? '⌘' : 'Ctrl';
+
+        // Global Application State
+        let currentGrid = { rows: 3, cols: 3 };
+        let activePresetKey = 'productivity';
+        let soundEnabled = true;
+        let soundType = 'thock'; // thock, clicky, linear, beep
+        let rgbMode = 'static'; // static, pulse, rainbow, off
+        let selectedEditingKeyIndex = 0;
+        let activeHotkeyListening = false;
+        let triggerHistory = [];
+
+        // Web Audio API Context
+        let audioCtx = null;
+
+        // Default Layout Presets (Mac & Windows auto-adapted)
+        const PRESETS = {
+            productivity: {
+                name: "🚀 Daily Productivity",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Copy", icon: "fa-solid fa-copy", color: "indigo", type: "copy_clipboard", value: `Copy selection (${modKey}+C)`, keybind: "1" },
+                    { label: "Paste", icon: "fa-solid fa-paste", color: "indigo", type: "paste_clipboard", value: `Paste from clipboard (${modKey}+V)`, keybind: "2" },
+                    { label: "Cut", icon: "fa-solid fa-scissors", color: "indigo", type: "cut_clipboard", value: `Cut selected text (${modKey}+X)`, keybind: "3" },
+                    { label: "Undo", icon: "fa-solid fa-rotate-left", color: "cyan", type: "shortcut_sim", value: isMac ? "⌘ + Z" : "Ctrl + Z", keybind: "4" },
+                    { label: "Redo", icon: "fa-solid fa-rotate-right", color: "cyan", type: "shortcut_sim", value: isMac ? "⌘ + Shift + Z" : "Ctrl + Y", keybind: "5" },
+                    { label: "Select All", icon: "fa-solid fa-object-group", color: "cyan", type: "select_all", value: `Select All (${modKey}+A)`, keybind: "6" },
+                    { label: "Screenshot", icon: "fa-solid fa-camera", color: "amber", type: "shortcut_sim", value: isMac ? "⌘ + Shift + 4" : "Win + Shift + S", keybind: "7" },
+                    { label: "Lock Screen", icon: "fa-solid fa-lock", color: "rose", type: "shortcut_sim", value: isMac ? "Ctrl + ⌘ + Q" : "Win + L", keybind: "8" },
+                    { label: "Email Signature", icon: "fa-solid fa-signature", color: "emerald", type: "copy_text", value: "Best regards,\nYour Name\nDeveloper & Designer", keybind: "9" }
+                ]
+            },
+            developer: {
+                name: "💻 Developer & Coding",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Console Log", icon: "fa-solid fa-terminal", color: "emerald", type: "copy_text", value: "console.log('DEBUG:', );", keybind: "1" },
+                    { label: "Git Status", icon: "fa-brands fa-git-alt", color: "amber", type: "copy_text", value: "git status", keybind: "2" },
+                    { label: "Git Commit", icon: "fa-solid fa-code-commit", color: "amber", type: "copy_text", value: 'git commit -m "update"', keybind: "3" },
+                    { label: "Format Code", icon: "fa-solid fa-wand-magic-sparkles", color: "indigo", type: "shortcut_sim", value: isMac ? "Shift + Option + F" : "Shift + Alt + F", keybind: "4" },
+                    { label: "Toggle Term", icon: "fa-solid fa-square-terminal", color: "indigo", type: "shortcut_sim", value: isMac ? "Control + `" : "Ctrl + `", keybind: "5" },
+                    { label: "Comment Line", icon: "fa-solid fa-hashtag", color: "indigo", type: "shortcut_sim", value: `${modKey} + /`, keybind: "6" },
+                    { label: "Lorem Ipsum", icon: "fa-solid fa-paragraph", color: "cyan", type: "copy_text", value: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", keybind: "7" },
+                    { label: "JSON Template", icon: "fa-solid fa-code", color: "cyan", type: "copy_text", value: '{\n  "status": "success",\n  "data": {}\n}', keybind: "8" },
+                    { label: "Open GitHub", icon: "fa-brands fa-github", color: "slate", type: "open_url", value: "https://github.com", keybind: "9" }
+                ]
+            },
+            media: {
+                name: "🎵 Media & Streaming",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Play / Pause", icon: "fa-solid fa-play", color: "emerald", type: "shortcut_sim", value: "MediaPlayPause", keybind: "1" },
+                    { label: "Mute Audio", icon: "fa-solid fa-volume-xmark", color: "rose", type: "shortcut_sim", value: "MediaMute", keybind: "2" },
+                    { label: "Next Track", icon: "fa-solid fa-forward-step", color: "cyan", type: "shortcut_sim", value: "MediaNextTrack", keybind: "3" },
+                    { label: "Vol Up", icon: "fa-solid fa-volume-high", color: "indigo", type: "shortcut_sim", value: "VolumeUp", keybind: "4" },
+                    { label: "Vol Down", icon: "fa-solid fa-volume-low", color: "indigo", type: "shortcut_sim", value: "VolumeDown", keybind: "5" },
+                    { label: "Prev Track", icon: "fa-solid fa-backward-step", color: "cyan", type: "shortcut_sim", value: "MediaPrevTrack", keybind: "6" },
+                    { label: "Applause FX", icon: "fa-solid fa-hands-clapping", color: "amber", type: "synth_sound", value: "440", keybind: "7" },
+                    { label: "Chime FX", icon: "fa-solid fa-bell", color: "amber", type: "synth_sound", value: "880", keybind: "8" },
+                    { label: "Spotify Web", icon: "fa-brands fa-spotify", color: "emerald", type: "open_url", value: "https://open.spotify.com", keybind: "9" }
+                ]
+            },
+            custom: {
+                name: "⚡ My Custom Deck",
+                rows: 3,
+                cols: 3,
+                keys: [
+                    { label: "Custom 1", icon: "fa-solid fa-bolt", color: "indigo", type: "copy_text", value: "Custom Macro 1", keybind: "1" },
+                    { label: "Custom 2", icon: "fa-solid fa-star", color: "indigo", type: "copy_text", value: "Custom Macro 2", keybind: "2" },
+                    { label: "Custom 3", icon: "fa-solid fa-fire", color: "indigo", type: "copy_text", value: "Custom Macro 3", keybind: "3" },
+                    { label: "Custom 4", icon: "fa-solid fa-gear", color: "cyan", type: "copy_text", value: "Custom Macro 4", keybind: "4" },
+                    { label: "Custom 5", icon: "fa-solid fa-heart", color: "cyan", type: "copy_text", value: "Custom Macro 5", keybind: "5" },
+                    { label: "Custom 6", icon: "fa-solid fa-gem", color: "cyan", type: "copy_text", value: "Custom Macro 6", keybind: "6" },
+                    { label: "Custom 7", icon: "fa-solid fa-globe", color: "emerald", type: "copy_text", value: "Custom Macro 7", keybind: "7" },
+                    { label: "Custom 8", icon: "fa-solid fa-shield", color: "amber", type: "copy_text", value: "Custom Macro 8", keybind: "8" },
+                    { label: "Custom 9", icon: "fa-solid fa-rocket", color: "rose", type: "copy_text", value: "Custom Macro 9", keybind: "9" }
+                ]
+            }
+        };
+
+        async function triggerKeyAction(index) {
+            const key = activeKeys[index];
+            if (!key) return;
+
+            playKeySound();
+
+            // Visual Animation Feedback on Keycap
+            const el = document.getElementById(`keycap-${index}`);
+            if (el) {
+                el.classList.add('key-active');
+                setTimeout(() => el.classList.remove('key-active'), 150);
+            }
+
+            let statusMessage = '';
+            const valClean = (key.value || '').toLowerCase().replace(/[\s+]/g, '');
+
+            // 1. COPY ACTION (Selection or Fallback Payload to System Clipboard)
+            if (key.type === 'copy_clipboard' || valClean.includes('ctrl+c') || valClean.includes('cmd+c') || valClean.includes('⌘+c')) {
+                const activeEl = document.activeElement;
+                let textToCopy = "";
+                
+                if (window.getSelection && window.getSelection().toString()) {
+                    textToCopy = window.getSelection().toString();
+                } else if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && activeEl.selectionStart !== activeEl.selectionEnd) {
+                    textToCopy = activeEl.value.substring(activeEl.selectionStart, activeEl.selectionEnd);
+                } else {
+                    textToCopy = (key.value && !key.value.toLowerCase().includes('copy selection') && !key.value.toLowerCase().includes('ctrl+c')) ? key.value : 'Sample copied text from Virtual Macro Pad!';
+                }
+
+                copyToClipboard(textToCopy);
+                statusMessage = `Copied: "${textToCopy}"`;
+                showToast(`📋 Copied (${modKey}+C): "${textToCopy.substring(0, 25)}${textToCopy.length > 25 ? '...' : ''}"`, 'success');
+
+            // 2. PASTE ACTION (Reads System Clipboard into Active Element or Test Input)
+            } else if (key.type === 'paste_clipboard' || valClean.includes('ctrl+v') || valClean.includes('cmd+v') || valClean.includes('⌘+v')) {
+                try {
+                    let pastedText = "";
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        pastedText = await navigator.clipboard.readText();
+                    }
+
+                    const activeEl = document.activeElement;
+                    const testInput = document.getElementById('testBoxInput');
+
+                    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                        const start = activeEl.selectionStart || 0;
+                        const end = activeEl.selectionEnd || 0;
+                        activeEl.value = activeEl.value.substring(0, start) + pastedText + activeEl.value.substring(end);
+                        activeEl.selectionStart = activeEl.selectionEnd = start + pastedText.length;
+                    } else if (testInput) {
+                        testInput.value = pastedText;
+                        testInput.focus();
+                    }
+
+                    if (pastedText) {
+                        statusMessage = `Pasted: "${pastedText}"`;
+                        showToast(`📥 Pasted (${modKey}+V): "${pastedText.substring(0, 25)}${pastedText.length > 25 ? '...' : ''}"`, 'emerald');
+                    } else {
+                        showToast(`📥 Clipboard is empty or permission denied`, 'amber');
+                    }
+                } catch (err) {
+                    showToast(`⚠️ Please grant clipboard permissions to paste`, 'amber');
+                }
+
+            // 3. CUT ACTION
+            } else if (key.type === 'cut_clipboard' || valClean.includes('ctrl+x') || valClean.includes('cmd+x') || valClean.includes('⌘+x')) {
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                    const start = activeEl.selectionStart;
+                    const end = activeEl.selectionEnd;
+                    const selectedText = activeEl.value.substring(start, end);
+                    if (selectedText) {
+                        copyToClipboard(selectedText);
+                        activeEl.value = activeEl.value.substring(0, start) + activeEl.value.substring(end);
+                        activeEl.selectionStart = activeEl.selectionEnd = start;
+                        showToast(`✂️ Cut selected text to clipboard (${modKey}+X)`, 'indigo');
+                    } else {
+                        showToast(`Select text in input box to cut`, 'amber');
+                    }
+                } else {
+                    document.execCommand('cut');
+                    showToast(`✂️ Cut selection (${modKey}+X)`, 'indigo');
+                }
+
+            // 4. SELECT ALL ACTION
+            } else if (key.type === 'select_all' || valClean.includes('ctrl+a') || valClean.includes('cmd+a') || valClean.includes('⌘+a')) {
+                const testInput = document.getElementById('testBoxInput');
+                const target = (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) ? document.activeElement : testInput;
+                if (target && target.select) {
+                    target.focus();
+                    target.select();
+                    showToast(`🔍 Selected All Text (${modKey}+A)`, 'cyan');
+                }
+
+                copyToClipboard(textToCopy);
+                statusMessage = `Copied: "${textToCopy}"`;
+                showToast(`📋 Copied to Clipboard: "${textToCopy.substring(0, 25)}${textToCopy.length > 25 ? '...' : ''}"`, 'success');
+
+            // 2. PASTE ACTION (Reads System Clipboard into Active Element or Test Input)
+            } else if (key.type === 'paste_clipboard' || (key.type === 'shortcut_sim' && key.value.toLowerCase().replace(/\s+/g, '') === 'ctrl+v')) {
+                try {
+                    let pastedText = "";
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        pastedText = await navigator.clipboard.readText();
+                    }
+
+                    const activeEl = document.activeElement;
+                    const testInput = document.getElementById('testBoxInput');
+
+                    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                        const start = activeEl.selectionStart || 0;
+                        const end = activeEl.selectionEnd || 0;
+                        activeEl.value = activeEl.value.substring(0, start) + pastedText + activeEl.value.substring(end);
+                        activeEl.selectionStart = activeEl.selectionEnd = start + pastedText.length;
+                    } else if (testInput) {
+                        testInput.value = pastedText;
+                        testInput.focus();
+                    }
+
+                    if (pastedText) {
+                        statusMessage = `Pasted: "${pastedText}"`;
+                        showToast(`📥 Pasted from Clipboard: "${pastedText.substring(0, 25)}${pastedText.length > 25 ? '...' : ''}"`, 'emerald');
+                    } else {
+                        showToast(`📥 Clipboard is empty or permission denied`, 'amber');
+                    }
+                } catch (err) {
+                    showToast(`⚠️ Please grant clipboard permissions to paste`, 'amber');
+                }
+
+            // 3. CUT ACTION
+            } else if (key.type === 'cut_clipboard' || (key.type === 'shortcut_sim' && key.value.toLowerCase().replace(/\s+/g, '') === 'ctrl+x')) {
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                    const start = activeEl.selectionStart;
+                    const end = activeEl.selectionEnd;
+                    const selectedText = activeEl.value.substring(start, end);
+                    if (selectedText) {
+                        copyToClipboard(selectedText);
+                        activeEl.value = activeEl.value.substring(0, start) + activeEl.value.substring(end);
+                        activeEl.selectionStart = activeEl.selectionEnd = start;
+                        showToast(`✂️ Cut selected text to clipboard`, 'indigo');
+                    } else {
+                        showToast(`Select text in input box to cut`, 'amber');
+                    }
+                } else {
+                    document.execCommand('cut');
+                    showToast(`✂️ Cut selection`, 'indigo');
+                }
+
+            // 4. SELECT ALL ACTION
+            } else if (key.type === 'select_all' || (key.type === 'shortcut_sim' && key.value.toLowerCase().replace(/\s+/g, '') === 'ctrl+a')) {
+                const testInput = document.getElementById('testBoxInput');
+                const target = (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) ? document.activeElement : testInput;
+                if (target && target.select) {
+                    target.focus();
+                    target.select();
+                    showToast(`🔍 Selected All Text`, 'cyan');
+                }
+
+            // 5. COPY CUSTOM TEXT SNIPPET
+            } else if (key.type === 'copy_text') {
+                copyToClipboard(key.value);
+                statusMessage = `Copied text snippet!`;
+                showToast(`💬 Copied Snippet: "${key.value.substring(0, 25)}${key.value.length > 25 ? '...' : ''}"`, 'success');
+
+            // 6. SHORTCUT SIMULATION DISPLAY
+            } else if (key.type === 'shortcut_sim') {
+                statusMessage = `Triggered ${key.value}`;
+                showToast(`⌨️ Executed: ${key.value}`, 'indigo');
+
+            // 7. OPEN WEBSITE URL
+            } else if (key.type === 'open_url') {
+                try {
+                    window.open(key.value, '_blank');
+                    statusMessage = `Opened ${key.value}`;
+                    showToast(`🌐 Opening link: ${key.value}`, 'emerald');
+                } catch(e) {
+                    showToast(`Failed to open URL`, 'error');
+                }
+
+            // 8. SYNTHESIZED SOUND
+            } else if (key.type === 'synth_sound') {
+                initAudioContext();
+                if (audioCtx) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.frequency.setValueAtTime(parseFloat(key.value) || 440, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+                statusMessage = `Played Tone (${key.value}Hz)`;
+                showToast(`🔊 Sound Tone Triggered`, 'amber');
+            }
+
+            // Update Status OLED bar
+            const displayAction = document.getElementById('activeActionDisplay');
+            if (displayAction) {
+                displayAction.textContent = `${key.label}: ${key.value}`;
+            }
+
+            // Update Inspector Display
+            updateInspector(index, key);
+
+            // Append to Action History
+            logHistory(key);
+        }
+
+        // Clipboard Copy Helper
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Inspector UI Updater
+        function updateInspector(index, key) {
+            document.getElementById('selectedKeyIdBadge').textContent = `Key #${index + 1}`;
+            
+            const container = document.getElementById('inspectorContent');
+            container.innerHTML = `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-lg">
+                            <i class="${key.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-200 text-sm">${key.label}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">Bound Key: [ ${key.keybind ? key.keybind.toUpperCase() : 'None'} ]</div>
+                        </div>
+                    </div>
+                    <hr class="border-slate-800">
+                    <div class="text-[11px] space-y-1">
+                        <div class="flex justify-between text-slate-400">
+                            <span>Type:</span>
+                            <span class="text-indigo-400 font-mono font-semibold">${key.type}</span>
+                        </div>
+                        <div class="text-slate-400">Payload:</div>
+                        <div class="bg-slate-900 p-2 rounded border border-slate-800 font-mono text-slate-200 break-all text-[10px]">
+                            ${key.value}
+                        </div>
+                    </div>
+                    <button onclick="openConfigModalForIndex(${index})" class="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-xs font-medium transition-colors">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> Edit This Key
+                    </button>
+                </div>
+            `;
+        }
+
+        // Action History Log Manager
+        function logHistory(key) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            triggerHistory.unshift({ key, time });
+            if (triggerHistory.length > 20) triggerHistory.pop();
+
+            const container = document.getElementById('historyLog');
+            if (!container) return;
+
+            container.innerHTML = triggerHistory.map(item => `
+                <div class="p-2 bg-slate-950/80 border border-slate-800/80 rounded-lg flex items-center justify-between text-[11px] hover:border-slate-700 transition-colors">
+                    <div class="flex items-center space-x-2 truncate">
+                        <i class="${item.key.icon} text-indigo-400 w-4 text-center"></i>
+                        <span class="font-semibold text-slate-200">${item.key.label}</span>
+                        <span class="text-slate-500 font-mono text-[10px]">(${item.key.value.substring(0, 15)})</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-mono ml-2 flex-shrink-0">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            triggerHistory = [];
+            document.getElementById('historyLog').innerHTML = `<div class="text-slate-500 text-center py-8 italic font-mono text-[11px]">No recent macro triggers.</div>`;
+        }
+
+        // Keyboard Event Listener for Physical Keypresses
+        window.addEventListener('keydown', (e) => {
+            // Ignore if typing inside input or textarea
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                if (activeHotkeyListening) {
+                    e.preventDefault();
+                    document.getElementById('editKeyBind').value = e.key;
+                    activeHotkeyListening = false;
+                }
+                return;
+            }
+
+            const pressedKey = e.key.toLowerCase();
+            
+            // Find key in activeKeys matching keybind
+            const targetIndex = activeKeys.findIndex(k => k && k.keybind && k.keybind.toLowerCase() === pressedKey);
+            if (targetIndex !== -1) {
+                e.preventDefault();
+                triggerKeyAction(targetIndex);
+            }
+        });
+
+        // Controls & Options Handlers
+        function loadPreset(presetKey) {
+            if (PRESETS[presetKey]) {
+                activePresetKey = presetKey;
+                activeKeys = JSON.parse(JSON.stringify(PRESETS[presetKey].keys));
+                currentGrid.rows = PRESETS[presetKey].rows;
+                currentGrid.cols = PRESETS[presetKey].cols;
+                
+                document.getElementById('displayProfileName').textContent = `PRESET: ${PRESETS[presetKey].name.toUpperCase()}`;
+                renderKeycapGrid();
+                showToast(`Loaded Preset: ${PRESETS[presetKey].name}`, 'indigo');
+            }
+        }
+
+        function setGridSize(rows, cols) {
+            currentGrid.rows = rows;
+            currentGrid.cols = cols;
+            renderKeycapGrid();
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const label = document.getElementById('soundLabel');
+            const icon = document.getElementById('soundIcon');
+            if (soundEnabled) {
+                label.textContent = "Switch Audio: On";
+                icon.className = "fa-solid fa-volume-high text-indigo-400";
+                showToast("Audio Click FX Enabled", "emerald");
+            } else {
+                label.textContent = "Switch Audio: Off";
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+                showToast("Audio Muted", "error");
+            }
+        }
+
+        function changeSoundType(type) {
+            soundType = type;
+            playKeySound();
+        }
+
+        function changeRGBMode(mode) {
+            rgbMode = mode;
+            const chassis = document.querySelector('.keycap-glow');
+            document.body.classList.remove('rgb-mode-rainbow', 'rgb-mode-pulse');
+            if (mode === 'rainbow') {
+                document.body.classList.add('rgb-mode-rainbow');
+            } else if (mode === 'pulse') {
+                document.body.classList.add('rgb-mode-pulse');
+            }
+            renderKeycapGrid();
+        }
+
+        // Modal Customizer logic
+        function openConfigModal() {
+            renderKeySelectorGrid();
+            openConfigModalForIndex(selectedEditingKeyIndex);
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function openConfigModalForIndex(index) {
+            selectedEditingKeyIndex = index;
+            renderKeySelectorGrid();
+
+            const key = activeKeys[index] || {
+                label: `Key ${index+1}`,
+                icon: "fa-solid fa-cube",
+                color: "indigo",
+                type: "copy_text",
+                value: "",
+                keybind: ""
+            };
+
+            document.getElementById('editKeyLabel').value = key.label;
+            document.getElementById('editKeyIcon').value = key.icon;
+            document.getElementById('editActionType').value = key.type;
+            document.getElementById('editActionValue').value = key.value;
+            document.getElementById('editKeyColor').value = key.color;
+            document.getElementById('editKeyBind').value = key.keybind || '';
+
+            updateActionInputVisibility();
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function renderKeySelectorGrid() {
+            const container = document.getElementById('keySelectorGrid');
+            container.innerHTML = '';
+            const totalKeys = currentGrid.rows * currentGrid.cols;
+
+            for (let i = 0; i < totalKeys; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-2 rounded-lg text-xs font-mono border ${i === selectedEditingKeyIndex ? 'bg-indigo-600 border-indigo-400 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`;
+                btn.textContent = `#${i+1}`;
+                btn.onclick = () => openConfigModalForIndex(i);
+                container.appendChild(btn);
+            }
+        }
+
+        function updateActionInputVisibility() {
+            const type = document.getElementById('editActionType').value;
+            const label = document.getElementById('editValueLabel');
+            const valInput = document.getElementById('editActionValue');
+
+            if (type === 'copy_clipboard') {
+                label.textContent = "Fallback Copy Text (if nothing is selected)";
+                valInput.placeholder = "Enter fallback text to copy...";
+            } else if (type === 'paste_clipboard') {
+                label.textContent = "Target Action";
+                valInput.placeholder = "Reads real system clipboard";
+            } else if (type === 'cut_clipboard' || type === 'select_all') {
+                label.textContent = "Target Action";
+                valInput.placeholder = "Applies to active text box";
+            } else if (type === 'copy_text') {
+                label.textContent = "Text Snippet to Copy";
+                valInput.placeholder = "Enter text snippet to copy on click...";
+            } else if (type === 'shortcut_sim') {
+                label.textContent = "Hotkey Combo Display";
+                valInput.placeholder = "e.g. Win + Shift + S";
+            } else if (type === 'open_url') {
+                label.textContent = "Target Web URL";
+                valInput.placeholder = "https://example.com";
+            } else if (type === 'synth_sound') {
+                label.textContent = "Sound Frequency (Hz)";
+                valInput.placeholder = "440";
+            }
+        }
+
+        function startListeningHotkey() {
+            activeHotkeyListening = true;
+            const input = document.getElementById('editKeyBind');
+            input.value = "Press any key on keyboard...";
+            input.focus();
+        }
+
+        function saveCurrentKeyConfig() {
+            activeKeys[selectedEditingKeyIndex] = {
+                label: document.getElementById('editKeyLabel').value || `Key ${selectedEditingKeyIndex+1}`,
+                icon: document.getElementById('editKeyIcon').value || 'fa-solid fa-cube',
+                type: document.getElementById('editActionType').value,
+                value: document.getElementById('editActionValue').value,
+                color: document.getElementById('editKeyColor').value,
+                keybind: document.getElementById('editKeyBind').value
+            };
+
+            renderKeycapGrid();
+            closeConfigModal();
+            showToast(`Key #${selectedEditingKeyIndex+1} Saved!`, 'emerald');
+        }
+
+        function resetKeyToDefault() {
+            if (PRESETS[activePresetKey] && PRESETS[activePresetKey].keys[selectedEditingKeyIndex]) {
+                activeKeys[selectedEditingKeyIndex] = JSON.parse(JSON.stringify(PRESETS[activePresetKey].keys[selectedEditingKeyIndex]));
+            } else {
+                activeKeys[selectedEditingKeyIndex] = {
+                    label: `Key ${selectedEditingKeyIndex+1}`,
+                    icon: "fa-solid fa-cube",
+                    color: "indigo",
+                    type: "copy_text",
+                    value: `Macro ${selectedEditingKeyIndex+1}`,
+                    keybind: `${selectedEditingKeyIndex+1}`
+                };
+            }
+            openConfigModalForIndex(selectedEditingKeyIndex);
+            renderKeycapGrid();
+            showToast(`Reset Key #${selectedEditingKeyIndex+1} to preset default`, 'amber');
+        }
+
+        function exportDeckJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                grid: currentGrid,
+                presetName: activePresetKey,
+                keys: activeKeys
+            }, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `macropad_profile_${activePresetKey}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Downloaded Deck JSON Profile", "indigo");
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'indigo') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            
+            const bgMap = {
+                indigo: "bg-indigo-900/90 border-indigo-700 text-indigo-100",
+                emerald: "bg-emerald-900/90 border-emerald-700 text-emerald-100",
+                amber: "bg-amber-900/90 border-amber-700 text-amber-100",
+                error: "bg-rose-900/90 border-rose-700 text-rose-100",
+                success: "bg-emerald-900/90 border-emerald-700 text-emerald-100"
+            };
+
+            toast.className = `px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-xl backdrop-blur-md flex items-center gap-2 transform transition-all duration-300 translate-y-4 opacity-0 pointer-events-auto ${bgMap[type] || bgMap.indigo}`;
+            toast.innerHTML = `<span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate In
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            });
+
+            // Remove after delay
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 2600);
+        }
+
+        // Live Clock Indicator
+        function updateClock() {
+            const el = document.getElementById('liveClock');
+            if (el) {
+                const now = new Date();
+                el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        // On Page Load Initialization
+        window.onload = function() {
+            renderKeycapGrid();
+            setInterval(updateClock, 1000);
+            updateClock();
+        };
+    </script>
+</body>
+</html>
